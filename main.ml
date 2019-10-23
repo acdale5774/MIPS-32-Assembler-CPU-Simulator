@@ -44,9 +44,9 @@ let rec parseToTokensInner l token =
 
 let parseToTokensMiddle s = parseToTokensInner (explode s) [];;
 
-let rec parseToTokensOuter (ll : list list char) = 
+let rec parseToTokensOuter ll = 
 	match ll with
-		[[]] -> [[]]
-		| h::t -> (implode h) @ parseToTokensOuter t;;
+		[] -> []
+        | h::t -> [implode h] @ parseToTokensOuter t;;
 
 let rec parseToTokens s = parseToTokensOuter (parseToTokensMiddle s);;

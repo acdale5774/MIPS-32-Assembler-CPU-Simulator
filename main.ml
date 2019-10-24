@@ -10,22 +10,9 @@ let implode c_l =
         List.iter (Buffer.add_char buf) c_l;
         Buffer.contents buf;;
 
-(*
-let rec parseToTokensInner l token =
-	match l with
-		[] -> 
-			if (token != [])
-				then
-					[token]
-				else
-					[[]]
-		| h::t -> 
-			if (h = ' ')
-				then
-					[token] @ parseToTokensInner t []
-				else
-					parseToTokensInner t (token @ [h]);;
-*)
+let rec printStringList = function 
+[] -> ()
+| e::l -> print_string e ; print_string " " ; printStringList l;;
 
 let rec parseToTokensInner l token =
 	match l with
@@ -34,11 +21,17 @@ let rec parseToTokensInner l token =
 				then
 					[token]
 				else
-					[[]]
+					[]
 		| h::t -> 
 			if (h = ' ')
 				then
-					[token] @ parseToTokensInner t []
+					begin
+						if (token != [])
+							then
+								[token] @ parseToTokensInner t []
+							else
+								parseToTokensInner t []
+					end
 				else
 					parseToTokensInner t (token @ [h]);;
 
@@ -50,3 +43,5 @@ let rec parseToTokensOuter ll =
         | h::t -> [implode h] @ parseToTokensOuter t;;
 
 let rec parseToTokens s = parseToTokensOuter (parseToTokensMiddle s);;
+
+let main = printStringList (parseToTokens Sys.argv.(1));;

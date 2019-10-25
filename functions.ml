@@ -1,4 +1,5 @@
 open String
+open Char
 
 
 
@@ -102,10 +103,48 @@ let encodeOp op =
 		| "lw" -> [1;0;0;0;1;1]
 		| "sw" -> [1;0;1;0;1;1];;
 
+let encodeReg reg =
+	match reg with
+		"$s0" -> [1;0;0;0;0] (* saved *)
+		| "$s1" -> [1;0;0;0;1]
+		| "$s2" -> [1;0;0;1;0]
+		| "$s3" -> [1;0;0;1;1]
+		| "$s4" -> [1;0;1;0;0]
+		| "$s5" -> [1;0;1;0;1]
+		| "$s6" -> [1;0;1;1;0]
+		| "$s7" -> [1;0;1;1;1]
+		| "$t0" -> [0;1;0;0;0] (* temporary *)
+		| "$t1" -> [0;1;0;0;1]
+		| "$t2" -> [0;1;0;1;0]
+		| "$t3" -> [0;1;0;1;1]
+		| "$t4" -> [0;1;1;0;0]
+		| "$t5" -> [0;1;1;0;1]
+		| "$t6" -> [0;1;1;1;0]
+		| "$t7" -> [0;1;1;1;1]
+		| "$t8" -> [1;1;0;0;0] (* different as in worksheet *)
+		| "$t9" -> [1;1;0;0;1] (* different as in worksheet *)
+		
+let rec encodeRegs regs =
+	match regs with
+		[] -> []
+		| h::t -> (encodeReg h) @ encodeRegs t;;
 
 
 (*
+ *
+ * R-TYPE
+ *
+ *)
+
+
+let rec extractRTypeRegs tokens =
+	match tokens with
+		[] -> []
+		| h::t ->
+			if ((String.get h 0) == '$') then
+				[h] @ extractRTypeRegs t
+			else
+				extractRTypeRegs t;;
 let rType ins = 
 	match ins with
-		opcode::rest -> rType_pad @ encodeRegs (extractRTypeRegs rest) @ shamt @ (encodeOp h)
-*)
+		opcode::rest -> rType_pad @ encodeRegs (extractRTypeRegs rest) @ shamt @ (encodeOp opcode);;

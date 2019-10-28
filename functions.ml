@@ -7,7 +7,8 @@ let r_type = "R-TYPE";;
 let load_or_store = "LOAD/STORE";;
 let branch = "BRANCH";;
 
-let rType_pad = [0;0;0;0;0;0];;  
+let rTypeHeader = [0;0;0;0;0;0];;  
+let loadOrStoreHeader = [1;0;0;0;1;1];;
 let shamt = [0;0;0;0;0];;
 
 
@@ -129,6 +130,8 @@ let rec encodeRegs regs =
 		[] -> []
 		| h::t -> (encodeReg h) @ encodeRegs t;;
 
+let convHexToBin hex =
+
 
 (*
  *
@@ -145,6 +148,41 @@ let rec extractRTypeRegs tokens =
 				[h] @ extractRTypeRegs t
 			else
 				extractRTypeRegs t;;
+
+let rec reorderRTypeRegs regs =
+	match regs with
+		h::t -> t @ [h];;
+
 let rType ins = 
 	match ins with
-		opcode::rest -> rType_pad @ encodeRegs (extractRTypeRegs rest) @ shamt @ (encodeOp opcode);;
+		opcode::rest -> rTypeHeader @ encodeRegs (reorderRTypeRegs (extractRTypeRegs rest)) @ shamt @ (encodeOp opcode);;
+
+
+(*
+ *
+ * LOAD/STORE 
+ *
+ *)
+
+(* lw $dest offset($base) *)
+(* sw $to offset($base) *)
+(* $rt is destination for loaded value *)
+
+(* (35 or 46) rs rt address *)
+(* opcode::rest -> loadOrStoreHeader @ rs @ rt @ address *)
+
+let extractDest tokens =
+	match tokens with
+		h::t -> h;;
+
+let extractSource tokens =
+	match tokens with
+		h::t -> match t 
+
+let extractOffset tokens = 
+
+let loadOrStoreInner tokens = (encodeRegs ([extractDest tokens] @ [extractSource tokens])) @ (convHexToBin ([extractOffset tokens]));;
+
+let loadOrStore ins = 
+	match ins with
+		opcode::rest -> loadOrStoreHeader @ loadOrStoreInner rest;;

@@ -28,8 +28,15 @@ let rec printStringList = function
 [] -> ()
 | e::l -> print_string e ; print_string " " ; printStringList l;;
 
+let rec printIntList = function 
+[] -> ()
+| e::l -> print_int e ; printIntList l;;
 
 
+let rec sizeOf l =
+	match l with
+		[] -> 0
+		| h::t -> 1 + (sizeOf t);;
 
 
 let rec parseToTokensInner l token =
@@ -41,7 +48,7 @@ let rec parseToTokensInner l token =
 			else
 				[]
 		| h::t -> 
-			if (h = ' ')
+			if ( (h==' ') || (h =='(') || (h ==')') )
 			then
 				begin
 					if (token != [])
@@ -131,13 +138,26 @@ let rec encodeRegs regs =
 		[] -> []
 		| h::t -> (encodeReg h) @ encodeRegs t;;
 
-let rec fixLengthTo32 bin sizeOfBin =
+let rec padN n =
+	if(n == 0)
+	then
+		[]
+	else
+		[0] @ padN (n-1);;
+
+let fixLengthTo16 bin sizeOfBin =
+	if(sizeOfBin > (instructionLen/2))
+	then
+		raise (Invalid_argument "ERROR: field is greater than 16 bits")
+	else
+		(padN ((instructionLen/2)-sizeOfBin)) @ bin;;
+
+let fixLengthTo32 bin sizeOfBin =
 	if(sizeOfBin > instructionLen)
+	then
 		raise (Invalid_argument "ERROR: field is greater than 32 bits")
 	else
-		match bin with
-			[] -> []
-			
+		(padN (instructionLen-sizeOfBin)) @ bin;;
 
 let convHexDigitToBin hexD =
 	match hexD with
@@ -178,14 +198,8 @@ let rec convHexToBinInner hex =
 let convHexToBin hex =
 	let withoutPrefix = (removeHexPrefix hex false) in
 		let unformatted = convHexToBinInner withoutPrefix in
-			fixLengthTo32 unformatted;;
+			fixLengthTo16 unformatted (sizeOf unformatted);;
 
-
-(*
- *
- * R-TYPE
- *
- *)
 
 (*
  *
@@ -225,20 +239,49 @@ let rType ins =
 (* (35 or 46) rs rt address *)
 (* opcode::rest -> loadOrStoreHeader @ rs @ rt @ address *)
 
+let lw = [1;0;0;0;1;1];;
+let sw = [1;0;1;0;1;1];;
+
+let loadOrStoreHeader header =
+	if(header = "lw")
+	then lw
+	else sw;;
+
+let rec extractToken tokens i =
+	match tokens with
+		h::t -> if(i==0)
+			then h
+			else extractToken t (i-1);;
+
+let loadOrStoreInner tokens = 
+	match tokens with
+		opcode::rest -> 
+			let header = loadOrStoreHeader opcode
+			and rs = encodeReg (extractToken tokens 3)
+			and rt = encodeReg (extractToken tokens 1)
+			and offset = convHexToBin (explode (extractToken tokens 2)) in 
+			header @ rs @ rt @ offset;;
+
+let loadOrStore ins = loadOrStoreInner (parseToTokens ins);;
+
+
 (*
-let extractDest tokens =
+ *
+ * BRANCH
+ *
+ *)
+
+let beq = [0;0;0;1;0;0];;
+
+let rec branchInner tokens i =
 	match tokens with
-		h::t -> h;;
+		[] -> []
+		| h::t ->
+			match i with
+				0 -> beq @ branchInner t (i+1)
+				| 1 -> (encodeReg h) @ branchInner t (i+1)
+				| 2 -> (encodeReg h) @ branchInner t (i+1)
+				| 3 -> (convHexToBin (explode h)) @ branchInner t (i+1)
+				| _ -> [];;
 
-let extractSource tokens =
-	match tokens with
-		h::t -> match t 
-
-let extractOffset tokens = 
-
-let loadOrStoreInner tokens = (encodeRegs ([extractDest tokens] @ [extractSource tokens])) @ (convHexToBin ([extractOffset tokens]));;
-
-let loadOrStore ins = 
-	match ins with
-		opcode::rest -> loadOrStoreHeader @ loadOrStoreInner rest;;
-*)
+let branch ins = branchInner (parseToTokens ins) 0;;

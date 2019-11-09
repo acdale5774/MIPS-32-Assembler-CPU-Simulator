@@ -11,6 +11,7 @@ let rTypeHeader = [0;0;0;0;0;0];;
 let loadOrStoreHeader = [1;0;0;0;1;1];;
 let shamt = [0;0;0;0;0];;
 
+let instructionLen = 32;;
 
 
 let explode s =
@@ -35,22 +36,22 @@ let rec parseToTokensInner l token =
 	match l with
 		[] -> 
 			if (token != [])
-				then
-					[token]
-				else
-					[]
+			then
+				[token]
+			else
+				[]
 		| h::t -> 
 			if (h = ' ')
-				then
-					begin
-						if (token != [])
-							then
-								[token] @ parseToTokensInner t []
-							else
-								parseToTokensInner t []
-					end
-				else
-					parseToTokensInner t (token @ [h]);;
+			then
+				begin
+					if (token != [])
+					then
+						[token] @ parseToTokensInner t []
+					else
+						parseToTokensInner t []
+				end
+			else
+				parseToTokensInner t (token @ [h]);;
 
 let parseToTokensMiddle s = parseToTokensInner (explode s) [];;
 
@@ -122,16 +123,69 @@ let encodeReg reg =
 		| "$t5" -> [0;1;1;0;1]
 		| "$t6" -> [0;1;1;1;0]
 		| "$t7" -> [0;1;1;1;1]
-		| "$t8" -> [1;1;0;0;0] (* different as in worksheet *)
-		| "$t9" -> [1;1;0;0;1] (* different as in worksheet *)
+		| "$t8" -> [1;1;0;0;0]   (* different as in worksheet *)
+		| "$t9" -> [1;1;0;0;1];; (* different as in worksheet *)
 		
 let rec encodeRegs regs =
 	match regs with
 		[] -> []
 		| h::t -> (encodeReg h) @ encodeRegs t;;
 
-let convHexToBin hex =
+let rec fixLengthTo32 bin sizeOfBin =
+	if(sizeOfBin > instructionLen)
+		raise (Invalid_argument "ERROR: field is greater than 32 bits")
+	else
+		match bin with
+			[] -> []
+			
 
+let convHexDigitToBin hexD =
+	match hexD with
+		'0' -> [0;0;0;0]
+		| '1' -> [0;0;0;1]
+		| '2' -> [0;0;1;0]
+		| '3' -> [0;0;1;1]
+		| '4' -> [0;1;0;0]
+		| '5' -> [0;1;0;1]
+		| '6' -> [0;1;1;0]
+		| '7' -> [0;1;1;1]
+		| '8' -> [1;0;0;0]
+		| '9' -> [1;0;0;1]
+		| 'a' -> [1;0;1;0]
+		| 'b' -> [1;0;1;1]
+		| 'c' -> [1;1;0;0]
+		| 'd' -> [1;1;0;1]
+		| 'e' -> [1;1;1;0]
+		| 'f' -> [1;1;1;1];;
+
+let rec removeHexPrefix hex inside =
+	match hex,inside with
+		[],false -> raise (Invalid_argument "ERROR: malformatted convHexToBin input")
+		| [],true -> []
+		| h::t,false -> 
+				if( (h == 'x') || (h == 'X') )
+				then
+					[] @ removeHexPrefix t true
+				else
+					[] @ removeHexPrefix t false
+		| h::t,true -> [h] @ removeHexPrefix t true;;
+
+let rec convHexToBinInner hex = 
+	match hex with
+		[] -> []
+		| h::t -> (convHexDigitToBin h) @ convHexToBinInner t;;
+
+let convHexToBin hex =
+	let withoutPrefix = (removeHexPrefix hex false) in
+		let unformatted = convHexToBinInner withoutPrefix in
+			fixLengthTo32 unformatted;;
+
+
+(*
+ *
+ * R-TYPE
+ *
+ *)
 
 (*
  *
@@ -171,6 +225,7 @@ let rType ins =
 (* (35 or 46) rs rt address *)
 (* opcode::rest -> loadOrStoreHeader @ rs @ rt @ address *)
 
+(*
 let extractDest tokens =
 	match tokens with
 		h::t -> h;;
@@ -186,3 +241,4 @@ let loadOrStoreInner tokens = (encodeRegs ([extractDest tokens] @ [extractSource
 let loadOrStore ins = 
 	match ins with
 		opcode::rest -> loadOrStoreHeader @ loadOrStoreInner rest;;
+*)

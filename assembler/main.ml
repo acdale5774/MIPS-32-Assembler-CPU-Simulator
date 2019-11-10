@@ -1,4 +1,5 @@
 open String
+open Hello
 
 let explode s =
   let rec exp i l =
@@ -44,4 +45,5 @@ let rec parseToTokensOuter ll =
 
 let rec parseToTokens s = parseToTokensOuter (parseToTokensMiddle s);;
 
-let main = printStringList (parseToTokens Sys.argv.(1));;
+(* let main = printStringList (parseToTokens Sys.argv.(1));; *)
+let main = Hello.hello ()

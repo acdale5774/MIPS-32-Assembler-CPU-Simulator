@@ -50,7 +50,7 @@ let rec parseToTokensInner l token =
 			else
 				[]
 		| h::t -> 
-			if ( (h==' ') || (h =='(') || (h ==')') )
+			if ( (h==' ') || (h==',') || (h =='(') || (h ==')') )
 			then
 				begin
 					if (token != [])
@@ -87,19 +87,30 @@ let rec extractListOfInsTokenListsInner ins_list =
             [] -> []
             | h::t -> [parseToTokens h] @ extractListOfInsTokenListsInner t;;
 
-let extractListOfInsTokenLists = extractListOfInsTokenLists (build_list []);;
 
+(* let extractListOfInsTokenLists = extractListOfInsTokenLists (build_list []);; *)
+
+(*
+let encodeToBinaryIntList t_l_l =
+	match t_l_l with
+		[] -> []
+		| token_list::rest -> 
+			match token_list with
+				[] -> []
+				opcode::rest -> 
+					if( (matchInsToType token_list) = r_type )
+					then
+						(rType token_list) @
+					else
+*)
 
 
 (* assumes non-empty token list *)
 let matchInsToType ins = 
 	match ins with
-		(*[] -> raise Invalid_argument "empty instruction" *)
-		(* | opcode::rest -> *)
-		opcode::rest ->
+		[] -> raise (Invalid_argument "empty instruction passed to matchInsToType")
+		| opcode::rest ->
 			match opcode with
-				(* "" -> raise Invalid_argument "empty string in tokens" *)
-				(* | "add" -> "RTYPE" *)
 				"add" -> r_type
 				| "addi" -> r_type
 				| "and" -> r_type
@@ -112,7 +123,8 @@ let matchInsToType ins =
 				| "beq" -> branch
 				| "j" -> branch 
 				| "lw" -> load_or_store
-				| "sw" -> load_or_store;;
+				| "sw" -> load_or_store
+				| _ -> raise (Invalid_argument "invalid opcode passed to matchInsToType");;
 
 let encodeOp op =
 	match op with
@@ -128,7 +140,8 @@ let encodeOp op =
 		| "beq" -> [0;0;0;1;0;0]
 		| "j" -> [0;0;0;0;1;0]
 		| "lw" -> [1;0;0;0;1;1]
-		| "sw" -> [1;0;1;0;1;1];;
+		| "sw" -> [1;0;1;0;1;1]
+		| _ -> raise (Invalid_argument "invalid opcode passed to encodeOp");;
 
 let encodeReg reg =
 	match reg with
@@ -148,8 +161,9 @@ let encodeReg reg =
 		| "$t5" -> [0;1;1;0;1]
 		| "$t6" -> [0;1;1;1;0]
 		| "$t7" -> [0;1;1;1;1]
-		| "$t8" -> [1;1;0;0;0]   (* different as in worksheet *)
-		| "$t9" -> [1;1;0;0;1];; (* different as in worksheet *)
+		| "$t8" -> [1;1;0;0;0] (* different as in worksheet *)
+		| "$t9" -> [1;1;0;0;1] (* different as in worksheet *)
+		| _ -> raise (Invalid_argument "Invalid register passed to encodeReg");;
 		
 let rec encodeRegs regs =
 	match regs with
@@ -194,7 +208,8 @@ let convHexDigitToBin hexD =
 		| 'c' -> [1;1;0;0]
 		| 'd' -> [1;1;0;1]
 		| 'e' -> [1;1;1;0]
-		| 'f' -> [1;1;1;1];;
+		| 'f' -> [1;1;1;1]
+		| _ -> raise (Invalid_argument "not hexDigit in convHexDigitToBin");;
 
 let rec removeHexPrefix hex inside =
 	match hex,inside with
@@ -237,11 +252,15 @@ let rec extractRTypeRegs tokens =
 
 let rec reorderRTypeRegs regs =
 	match regs with
-		h::t -> t @ [h];;
+		[] -> raise (Invalid_argument "invalid regs in reorderRTypeRegs")
+		| h::t -> t @ [h];;
 
-let rType ins = 
-	match ins with
-		opcode::rest -> rTypeHeader @ encodeRegs (reorderRTypeRegs (extractRTypeRegs rest)) @ shamt @ (encodeOp opcode);;
+let rTypeInsInner tokens = 
+	match tokens with
+		[] -> raise (Invalid_argument "invalid token list in rTypeInsInner")
+		| opcode::rest -> rTypeHeader @ encodeRegs (reorderRTypeRegs (extractRTypeRegs rest)) @ shamt @ (encodeOp opcode);;
+
+let rTypeIns ins = rTypeInsInner (parseToTokens ins);;
 
 
 (*
@@ -267,20 +286,22 @@ let loadOrStoreHeader header =
 
 let rec extractToken tokens i =
 	match tokens with
-		h::t -> if(i==0)
+		[] -> raise (Invalid_argument "invalid token list in extractToken")
+		| h::t -> if(i==0)
 			then h
 			else extractToken t (i-1);;
 
 let loadOrStoreInner tokens = 
 	match tokens with
-		opcode::rest -> 
+		[] -> raise (Invalid_argument "invalid token list in loadOrStoreInner")
+		| opcode::rest -> 
 			let header = loadOrStoreHeader opcode
 			and rs = encodeReg (extractToken tokens 3)
 			and rt = encodeReg (extractToken tokens 1)
 			and offset = convHexToBin (explode (extractToken tokens 2)) in 
 			header @ rs @ rt @ offset;;
 
-let loadOrStore ins = loadOrStoreInner (parseToTokens ins);;
+let loadOrStoreIns ins = loadOrStoreInner (parseToTokens ins);;
 
 
 (*
@@ -291,19 +312,31 @@ let loadOrStore ins = loadOrStoreInner (parseToTokens ins);;
 
 let beq = [0;0;0;1;0;0];;
 
-let rec branchInner tokens i =
+let rec branchInsInner tokens i =
 	match tokens with
 		[] -> []
 		| h::t ->
 			match i with
-				0 -> beq @ branchInner t (i+1)
-				| 1 -> (encodeReg h) @ branchInner t (i+1)
-				| 2 -> (encodeReg h) @ branchInner t (i+1)
-				| 3 -> (convHexToBin (explode h)) @ branchInner t (i+1)
+				0 -> beq @ branchInsInner t (i+1)
+				| 1 -> (encodeReg h) @ branchInsInner t (i+1)
+				| 2 -> (encodeReg h) @ branchInsInner t (i+1)
+				| 3 -> (convHexToBin (explode h)) @ branchInsInner t (i+1)
 				| _ -> [];;
 
-let branch ins = branchInner (parseToTokens ins) 0;;
+let branchIns ins = branchInsInner (parseToTokens ins) 0;;
 
 
+let rec temp ins_list =
+	match ins_list with
+		[] -> []
+		| ins::rest -> let insType = matchInsToType (parseToTokens ins) in
+			match insType with
+				r_type -> (rTypeIns ins) @ temp rest
+				| load_or_store -> (loadOrStoreIns ins) @ temp rest
+				| branch -> (branchIns ins) @ temp rest
+				| _ -> raise (Invalid_argument "not valid ins type in FUNCTION");;
 
-let main = extractListOfInsTokenLists;;
+let mainI = 
+	let listIns = (build_list []) in
+	let intsOfIns = (temp listIns) in
+	printIntList intsOfIns;;

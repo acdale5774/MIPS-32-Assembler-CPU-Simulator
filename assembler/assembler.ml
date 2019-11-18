@@ -13,9 +13,11 @@ let oc = open_out_bin "out.bin";;
 let r_type = "R-TYPE";;
 let load_or_store = "LOAD/STORE";;
 let branch = "BRANCH";;
+let jump = "JUMP";;
 
 let rTypeHeader = [0;0;0;0;0;0];;  
 let loadOrStoreHeader = [1;0;0;0;1;1];;
+let jumpHeader = [0;0;0;0;1;0];;
 let shamt = [0;0;0;0;0];;
 
 let instructionLen = 32;;
@@ -137,7 +139,7 @@ let matchInsToType ins =
 				| "sub" -> r_type 
 				| "xor" -> r_type 
 				| "beq" -> branch
-				| "j" -> branch 
+				| "j" -> jump 
 				| "lw" -> load_or_store
 				| "sw" -> load_or_store
 				| _ -> raise (Invalid_argument "invalid opcode passed to matchInsToType");;
@@ -249,6 +251,16 @@ let convHexToBin hex =
 		let unformatted = convHexToBinInner withoutPrefix in
 			fixLengthTo16 unformatted (sizeOf unformatted);;
 
+let rec convDecToBinInner d =
+	if(d = 0) then []
+	else
+		(d mod 2) :: convDecToBinInner (d / 2);;
+
+let convDecToBin d =
+	if (d = 0) then [0]
+	else
+		List.rev (convDecToBinInner d);;
+
 let rec pow base exp =
 	if (exp = 0) then 1
 	else 
@@ -353,6 +365,26 @@ let rec branchInsInner tokens i =
 
 let branchIns ins = branchInsInner (parseToTokens ins) 0;;
 
+(*
+ *
+ * JUMP
+ *
+ *)
+
+let jump_bin = [0;0;0;0;1;0];;
+
+let rec jumpInsInner tokens =
+	match tokens with
+		[] -> []
+		| h::t -> 
+			if (String.contains (List.nth tokens 1) 'x') 
+			|| (String.contains (List.nth tokens 1) 'X') then
+				jump_bin @ convHexToBin (explode (List.nth tokens 1))
+			else
+				jump_bin @ convDecToBin (int_of_string (List.nth tokens 1));;
+
+let jumpIns ins = jumpInsInner (parseToTokens ins);;
+
 
 let rec asciiRep ins_list =
 	match ins_list with
@@ -363,6 +395,7 @@ let rec asciiRep ins_list =
 					result @ asciiRep rest
 				| "LOAD/STORE" -> (loadOrStoreIns ins) @ asciiRep rest
 				| "BRANCH" -> (branchIns ins) @ asciiRep rest
+				| "JUMP" -> (jumpIns ins) @ asciiRep rest
 				| _ -> raise (Invalid_argument "not valid ins type in FUNCTION");;
 
 let rec chunkBy8Inner l in_l i =
